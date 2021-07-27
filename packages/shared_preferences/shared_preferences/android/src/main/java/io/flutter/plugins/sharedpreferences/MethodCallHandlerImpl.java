@@ -197,10 +197,8 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
 
   // Filter preferences to only those set by the flutter app.
   private Map<String, Object> getAllPrefs() throws IOException {
-    Map<String, ?> allPrefs = preferences.getAll();
     Map<String, Object> filteredPrefs = new HashMap<>();
     for (String key : allPrefs.keySet()) {
-      if (key.startsWith("flutter.")) {
       Object value = allPrefs.get(key);
       if (value instanceof String) {
         String stringValue = (String) value;
@@ -232,7 +230,7 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
       }
       filteredPrefs.put(key, value);
     }
-    }
+
     return filteredPrefs;
   }
 }

@@ -19,7 +19,6 @@ import 'package:shared_preferences_windows/shared_preferences_windows.dart';
 class SharedPreferences {
   SharedPreferences._(this._preferenceCache);
 
-  static const String _prefix = 'flutter.';
   static Completer<SharedPreferences>? _completer;
   static bool _manualDartRegistrationNeeded = true;
 
@@ -137,21 +136,19 @@ class SharedPreferences {
 
   /// Removes an entry from persistent storage.
   Future<bool> remove(String key) {
-    final String prefixedKey = '$_prefix$key';
     _preferenceCache.remove(key);
-    return _store.remove(prefixedKey);
+    return _store.remove(key);
   }
 
   Future<bool> _setValue(String valueType, String key, Object value) {
     ArgumentError.checkNotNull(value, 'value');
-    final String prefixedKey = '$_prefix$key';
     if (value is List<String>) {
       // Make a copy of the list so that later mutations won't propagate
       _preferenceCache[key] = value.toList();
     } else {
       _preferenceCache[key] = value;
     }
-    return _store.setValue(valueType, prefixedKey, value);
+    return _store.setValue(valueType, key, value);
   }
 
   /// Always returns true.
@@ -179,13 +176,7 @@ class SharedPreferences {
   static Future<Map<String, Object>> _getSharedPreferencesMap() async {
     final Map<String, Object> fromSystem = await _store.getAll();
     assert(fromSystem != null);
-    // Strip the flutter. prefix from the returned preferences.
-    final Map<String, Object> preferencesMap = <String, Object>{};
-    for (String key in fromSystem.keys) {
-      assert(key.startsWith(_prefix));
-      preferencesMap[key.substring(_prefix.length)] = fromSystem[key]!;
-    }
-    return preferencesMap;
+    return fromSystem;
   }
 
   /// Initializes the shared preferences with mock values for testing.
@@ -195,11 +186,7 @@ class SharedPreferences {
   static void setMockInitialValues(Map<String, Object> values) {
     final Map<String, Object> newValues =
         values.map<String, Object>((String key, Object value) {
-      String newKey = key;
-      if (!key.startsWith(_prefix)) {
-        newKey = '$_prefix$key';
-      }
-      return MapEntry<String, Object>(newKey, value);
+      return MapEntry<String, Object>(key, value);
     });
     SharedPreferencesStorePlatform.instance =
         InMemorySharedPreferencesStore.withData(newValues);
