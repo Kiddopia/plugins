@@ -46,12 +46,28 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
   private final ExecutorService executor;
   private final Handler handler;
 
+  private static String getResourceFromContext(Context context, String resName) {
+    final int stringRes = context.getResources().getIdentifier(resName, "string", context.getPackageName());
+    if (stringRes == 0) {
+      throw new IllegalArgumentException(String.format("The 'R.string.%s' value it's not defined in your project's resources file.", resName));
+    }
+    return context.getString(stringRes);
+  }
+
   /**
    * Constructs a {@link MethodCallHandlerImpl} instance. Creates a {@link
    * android.content.SharedPreferences} based on the {@code context}.
    */
   MethodCallHandlerImpl(Context context) {
-    preferences = context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
+    try {
+      String resourceName = getResourceFromContext(context, "flutter_shared_pref_name");
+      Log.d("SharedPreferences:", "using custom resource name - " + resourceName);
+      pref = context.getSharedPreferences(resourceName, Context.MODE_PRIVATE);
+    } catch (IllegalArgumentException e) {
+      Log.d("SharedPreferences:", "using default resource name");
+      pref = context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
+    }
+    preferences = pref;
     executor =
         new ThreadPoolExecutor(0, 1, 30L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
     handler = new Handler(Looper.getMainLooper());
@@ -185,37 +201,37 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
     Map<String, Object> filteredPrefs = new HashMap<>();
     for (String key : allPrefs.keySet()) {
       if (key.startsWith("flutter.")) {
-        Object value = allPrefs.get(key);
-        if (value instanceof String) {
-          String stringValue = (String) value;
-          if (stringValue.startsWith(LIST_IDENTIFIER)) {
-            value = decodeList(stringValue.substring(LIST_IDENTIFIER.length()));
-          } else if (stringValue.startsWith(BIG_INTEGER_PREFIX)) {
-            String encoded = stringValue.substring(BIG_INTEGER_PREFIX.length());
-            value = new BigInteger(encoded, Character.MAX_RADIX);
-          } else if (stringValue.startsWith(DOUBLE_PREFIX)) {
-            String doubleStr = stringValue.substring(DOUBLE_PREFIX.length());
-            value = Double.valueOf(doubleStr);
-          }
-        } else if (value instanceof Set) {
-          // This only happens for previous usage of setStringSet. The app expects a list.
-          List<String> listValue = new ArrayList<>((Set) value);
-          // Let's migrate the value too while we are at it.
-          boolean success =
-              preferences
-                  .edit()
-                  .remove(key)
-                  .putString(key, LIST_IDENTIFIER + encodeList(listValue))
-                  .commit();
-          if (!success) {
-            // If we are unable to migrate the existing preferences, it means we potentially lost them.
-            // In this case, an error from getAllPrefs() is appropriate since it will alert the app during plugin initialization.
-            throw new IOException("Could not migrate set to list");
-          }
-          value = listValue;
+      Object value = allPrefs.get(key);
+      if (value instanceof String) {
+        String stringValue = (String) value;
+        if (stringValue.startsWith(LIST_IDENTIFIER)) {
+          value = decodeList(stringValue.substring(LIST_IDENTIFIER.length()));
+        } else if (stringValue.startsWith(BIG_INTEGER_PREFIX)) {
+          String encoded = stringValue.substring(BIG_INTEGER_PREFIX.length());
+          value = new BigInteger(encoded, Character.MAX_RADIX);
+        } else if (stringValue.startsWith(DOUBLE_PREFIX)) {
+          String doubleStr = stringValue.substring(DOUBLE_PREFIX.length());
+          value = Double.valueOf(doubleStr);
         }
-        filteredPrefs.put(key, value);
+      } else if (value instanceof Set) {
+        // This only happens for previous usage of setStringSet. The app expects a list.
+        List<String> listValue = new ArrayList<>((Set) value);
+        // Let's migrate the value too while we are at it.
+        boolean success =
+                preferences
+                        .edit()
+                        .remove(key)
+                        .putString(key, LIST_IDENTIFIER + encodeList(listValue))
+                        .commit();
+        if (!success) {
+          // If we are unable to migrate the existing preferences, it means we potentially lost them.
+          // In this case, an error from getAllPrefs() is appropriate since it will alert the app during plugin initialization.
+          throw new IOException("Could not migrate set to list");
+        }
+        value = listValue;
       }
+      filteredPrefs.put(key, value);
+    }
     }
     return filteredPrefs;
   }
