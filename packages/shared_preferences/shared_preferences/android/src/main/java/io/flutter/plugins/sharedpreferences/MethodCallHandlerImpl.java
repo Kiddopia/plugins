@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.util.Log;
+
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import java.io.ByteArrayInputStream;
@@ -59,6 +61,7 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
    * android.content.SharedPreferences} based on the {@code context}.
    */
   MethodCallHandlerImpl(Context context) {
+    SharedPreferences pref;
     try {
       String resourceName = getResourceFromContext(context, "flutter_shared_pref_name");
       Log.d("SharedPreferences:", "using custom resource name - " + resourceName);
@@ -198,6 +201,7 @@ class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
   // Filter preferences to only those set by the flutter app.
   private Map<String, Object> getAllPrefs() throws IOException {
     Map<String, Object> filteredPrefs = new HashMap<>();
+    Map<String, ?> allPrefs = preferences.getAll();
     for (String key : allPrefs.keySet()) {
       Object value = allPrefs.get(key);
       if (value instanceof String) {
